@@ -77,10 +77,10 @@ function set(state, prop, value) {
     if (!state.modified) {
         if (
             (prop in state.base && is(state.base[prop], value)) ||
-            (has(state.proxies, prop) && state.proxies[prop] === value)
+            (has(state.proxies, prop) && state.proxies[prop] === value) //值不变的情况下return true
         )
             return true
-        markChanged(state)
+        markChanged(state) // 标记已经变化
     }
     state.copy[prop] = value
     return true
@@ -111,7 +111,7 @@ function defineProperty() {
 function markChanged(state) {
     if (!state.modified) {
         state.modified = true
-        state.copy = shallowCopy(state.base)
+        state.copy = shallowCopy(state.base) // 这是否意味着对象的属性是对象的情况下，该对象的__proto__的值都丢失？
         // copy the proxies over the base-copy
         Object.assign(state.copy, state.proxies) // yup that works for arrays as well
         if (state.parent) markChanged(state.parent)
@@ -139,9 +139,9 @@ export function produceProxy(baseState, producer) {
     proxies = []
     try {
         // create proxy for root
-        const rootProxy = createProxy(undefined, baseState)
+        const rootProxy = createProxy(undefined, baseState) // 创建根代理
         // execute the thunk
-        const returnValue = producer.call(rootProxy, rootProxy)
+        const returnValue = producer.call(rootProxy, rootProxy) // 执行函数，拿到返回值
         // and finalize the modified proxy
         let result
         // check whether the draft was modified and/or a value was returned

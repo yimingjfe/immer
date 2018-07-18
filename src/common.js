@@ -95,7 +95,7 @@ export function finalize(base) {
                 state
             )
         } else {
-            return state.base
+            return state.base // 没做任何变化，会返回原属性状态
         }
     }
     finalizeNonProxiedObject(base)
