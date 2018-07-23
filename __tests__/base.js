@@ -50,7 +50,9 @@ function runBaseTest(name, useProxies, freeze) {
             const nextState = produce(baseState, s => {
                 expect(Object.getPrototypeOf(s)).toBe(Object.prototype)
                 expect(Array.isArray(s.anArray)).toBe(true)
+                // console.log('before')
                 s.anArray.push(3)
+                // console.log('end')
                 s.aProp = "hello world"
                 expect(Object.getPrototypeOf(s)).toBe(Object.prototype)
                 expect(Array.isArray(s.anArray)).toBe(true)

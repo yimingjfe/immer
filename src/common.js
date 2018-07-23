@@ -39,9 +39,10 @@ export function isProxy(value) {
     return !!value && !!value[PROXY_STATE]
 }
 
+// typeof value != null && typeof value === 'object' && (proto === null || proto ==== Object.proptotype)
 export function isProxyable(value) {
-    if (!value) return false
-    if (typeof value !== "object") return false
+    if (!value) return false // null 不行
+    if (typeof value !== "object") return false // 必须是对象
     if (Array.isArray(value)) return true
     const proto = Object.getPrototypeOf(value)
     return proto === null || proto === Object.prototype
@@ -103,6 +104,7 @@ export function finalize(base) {
 }
 
 function finalizeObject(copy, state) {
+    // copy 与 base比较，不一样要finalize
     const base = state.base
     each(copy, (prop, value) => {
         if (value !== base[prop]) copy[prop] = finalize(value)

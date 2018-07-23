@@ -35,8 +35,9 @@ const objectTraps = {
 const arrayTraps = {}
 each(objectTraps, (key, fn) => {
     arrayTraps[key] = function() {
+        // console.log('key', key, arguments)
         arguments[0] = arguments[0][0]
-        return fn.apply(this, arguments)
+        return fn.apply(this, arguments) // state push proxy
     }
 })
 
@@ -56,31 +57,36 @@ function source(state) {
 }
 
 function get(state, prop) {
+    // get的时候都会创建代理，返回的是copy的值或base的值
     if (prop === PROXY_STATE) return state
     if (state.modified) {
-        const value = state.copy[prop]
+        // 如果修改过，就拿copy[prop]的值创建代理，然后返回这个代理
+        const value = state.copy[prop] // set之后copy上有最全的值
         if (value === state.base[prop] && isProxyable(value))
             // only create proxy if it is not yet a proxy, and not a new object
             // (new objects don't need proxying, they will be processed in finalize anyway)
             return (state.copy[prop] = createProxy(state, value))
         return value
     } else {
-        if (has(state.proxies, prop)) return state.proxies[prop]
-        const value = state.base[prop]
+        // 为什么不仅仅维护一个copy，还要多维护一个proxies?如果只有一个copy，可以set的时候有的值不覆盖不就行了
+        if (has(state.proxies, prop)) return state.proxies[prop] // 如果没被修改代理上有对应值的话，就返回代理上的值
+        const value = state.base[prop] // 没有变化就直接取base上的数据
         if (!isProxy(value) && isProxyable(value))
+            // 获取的值如果是一个PlainObject或数组，就创建代理
             return (state.proxies[prop] = createProxy(state, value))
         return value
     }
 }
 
 function set(state, prop, value) {
+    // set的关键是不改老的值，所以改的copy上的值
     if (!state.modified) {
         if (
             (prop in state.base && is(state.base[prop], value)) ||
             (has(state.proxies, prop) && state.proxies[prop] === value) //值不变的情况下return true
         )
             return true
-        markChanged(state) // 标记已经变化
+        markChanged(state) // 标记state.modified变化，标记parent.modified变化
     }
     state.copy[prop] = value
     return true
@@ -136,7 +142,7 @@ export function produceProxy(baseState, producer) {
         return returnValue === undefined ? baseState : returnValue
     }
     const previousProxies = proxies
-    proxies = []
+    proxies = [] // 通过createProxy创建的proxy都会在这里面
     try {
         // create proxy for root
         const rootProxy = createProxy(undefined, baseState) // 创建根代理
