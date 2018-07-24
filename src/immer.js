@@ -1,7 +1,7 @@
 export {setAutoFreeze, setUseProxies} from "./common"
 
 import {isProxyable, getUseProxies} from "./common"
-import {produceProxy} from "./proxy"
+import {produceProxy} from "./proxy2"
 import {produceEs5} from "./es5"
 
 /**
