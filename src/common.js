@@ -104,7 +104,11 @@ export function finalize(base) {
 }
 
 function finalizeObject(copy, state) {
+    // 说明state上的某个属性已经变化了
     // copy 与 base比较，不一样要finalize
+    // copy上的值不变为什么不管？copy上的值没变化，它可能是个代理
+    // 没变化说明没有set，没set说明该对象base上的值是可靠的
+    // 一样的说明不是一个代理值，说明连get都没调用过，所以不需要处理
     const base = state.base
     each(copy, (prop, value) => {
         if (value !== base[prop]) copy[prop] = finalize(value)

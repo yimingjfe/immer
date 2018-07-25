@@ -6,7 +6,8 @@ import {
     PROXY_STATE,
     shallowCopy,
     RETURNED_AND_MODIFIED_ERROR,
-    each
+    each,
+    finalize
 } from "./common"
 
 // state.proxies有什么用，为什么不直接用state.copy？
@@ -17,21 +18,26 @@ import {
 
 // PROXY_STATE有两个作用，一是便于取state上的值，如Modified，另一个是帮助验证是不是设置过代理了
 
-function finalize(base) {
-    const state = base[PROXY_STATE]
-    if (state.modified) {
-        for (let i in state.copy) {
-            const value = state.copy[i]
-            if (isProxy(value)) {
-                finalize(value)
-            } else {
-                return value
-            }
-        }
-    } else {
-        return state.base
-    }
-}
+// function finalize(base) {
+//     const state = base[PROXY_STATE]
+//     if (state.modified) {
+//         for (let i in state.copy) {
+//             const value = state.copy[i]
+//             state.copy[i] = finalizeObject(value)
+//         }
+//         return state.copy
+//     } else {
+//         return state.base
+//     }
+// }
+
+// function finalizeObject(value){
+//     if (isProxy(value)) {
+//         return finalize(value)
+//     } else {
+//         return value
+//     }
+// }
 
 let proxies = null
 const objectTraps = {
