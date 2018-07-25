@@ -63,6 +63,7 @@ function get(state, prop) {
         // 如果修改过，就拿copy[prop]的值创建代理，然后返回这个代理
         const value = state.copy[prop] // set之后copy上有最全的值
         if (value === state.base[prop] && isProxyable(value))
+            // 修改了其他属性，但是当前值没有变化  如果这个值发生了变化，证明copy上有副本了
             // only create proxy if it is not yet a proxy, and not a new object
             // (new objects don't need proxying, they will be processed in finalize anyway)
             return (state.copy[prop] = createProxy(state, value))

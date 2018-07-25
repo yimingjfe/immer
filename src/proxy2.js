@@ -1,9 +1,12 @@
 import {
-    finalize,
+    is,
+    has,
+    isProxyable,
     isProxy,
     PROXY_STATE,
-    isProxyable,
-    shallowCopy
+    shallowCopy,
+    RETURNED_AND_MODIFIED_ERROR,
+    each
 } from "./common"
 
 // state.proxies有什么用，为什么不直接用state.copy？
@@ -11,6 +14,24 @@ import {
 // parent都有什么用？  改变子属性，意味着父属性也要markChanged
 
 // 为什么新的对象get的时候，不需要创建代理？ 新对象的值不需要做代理，修改的时候直接覆盖即可
+
+// PROXY_STATE有两个作用，一是便于取state上的值，如Modified，另一个是帮助验证是不是设置过代理了
+
+function finalize(base) {
+    const state = base[PROXY_STATE]
+    if (state.modified) {
+        for (let i in state.copy) {
+            const value = state.copy[i]
+            if (isProxy(value)) {
+                finalize(value)
+            } else {
+                return value
+            }
+        }
+    } else {
+        return state.base
+    }
+}
 
 let proxies = null
 const objectTraps = {
@@ -29,6 +50,14 @@ const objectTraps = {
         throw new Error("Immer does not support `setPrototypeOf()`.")
     }
 }
+
+const arrayTraps = {}
+each(objectTraps, (key, fn) => {
+    arrayTraps[key] = function() {
+        arguments[0] = arguments[0][0]
+        return fn.apply(this, arguments)
+    }
+})
 
 function getOwnPropertyDescriptor(state, prop) {
     const owner = state.modified
@@ -79,25 +108,19 @@ function set(state, prop, value) {
     return true
 }
 
-function get(target, prop) {
-    if (prop === PROXY_STATE) return target
-    if (target.modified) {
-        if (!isProxy(target.copy[prop] && isProxyable(target.copy[prop]))) {
-            return (target.copy[prop] = createProxy(
-                target.copy,
-                target.copy[prop]
-            ))
-        }
-        return target.copy[prop]
+function get(state, prop) {
+    if (prop === PROXY_STATE) return state
+    if (state.modified) {
+        const value = state.copy[prop]
+        if (value === state.base[prop] && isProxyable(value))
+            return (state.copy[prop] = createProxy(state, value))
+        return value
     } else {
-        if (has(target.proxies, prop)) return target.proxies[prop]
-        if (!isProxy(target.base[prop] && isProxyable(target.base[prop]))) {
-            return (target.proxies[prop] = createProxy(
-                target,
-                target.base[prop]
-            ))
+        if (has(state.proxies, prop)) return state.proxies[prop]
+        if (!isProxy(state.base[prop]) && isProxyable(state.base[prop])) {
+            return (state.proxies[prop] = createProxy(state, state.base[prop]))
         }
-        return target.base[prop]
+        return state.base[prop]
     }
 }
 
@@ -107,7 +130,8 @@ function createState(parent, base) {
         parent,
         copy: undefined,
         proxies: {},
-        modified: false
+        modified: false,
+        finalized: false
     }
 }
 
@@ -122,9 +146,9 @@ function createProxy(parent, base) {
 }
 
 export function produceProxy(baseState, producer) {
+    proxies = []
     const rootProxy = createProxy(undefined, baseState)
     const returnValue = producer.call(rootProxy, rootProxy)
-    proxies = []
     let result
     if (returnValue !== undefined && returnValue !== rootProxy) {
         if (rootProxy[PROXY_STATE].modified)
