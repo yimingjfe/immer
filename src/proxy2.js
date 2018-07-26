@@ -7,7 +7,9 @@ import {
     shallowCopy,
     RETURNED_AND_MODIFIED_ERROR,
     each,
-    finalize
+    useProxies,
+    // finalize,
+    freeze
 } from "./common"
 
 // state.proxies有什么用，为什么不直接用state.copy？
@@ -18,26 +20,65 @@ import {
 
 // PROXY_STATE有两个作用，一是便于取state上的值，如Modified，另一个是帮助验证是不是设置过代理了
 
+// 可以提两个pr，第一个是shallowCopy丢掉了原型链，一个是isPlainObject的判断太复杂了
+
+function finalize(base) {
+    if (isProxy(base)) {
+        const state = base[PROXY_STATE]
+        if (state.modified === true) {
+            if (state.finalized === true) return state.copy
+            state.finalized = true
+            return finalizeObject(
+                useProxies ? state.copy : (state.copy = shallowCopy(base)),
+                state
+            )
+        } else {
+            return state.base
+        }
+    }
+    finalizeNonProxiedObject(base)
+    return base
+}
+
 // function finalize(base) {
-//     const state = base[PROXY_STATE]
-//     if (state.modified) {
-//         for (let i in state.copy) {
-//             const value = state.copy[i]
-//             state.copy[i] = finalizeObject(value)
+//     if (isProxy(base)) {
+//         const state = base[PROXY_STATE]
+//         if (state.modified === true) {
+//             if (state.finalized === true) return state.copy
+//             state.finalized = true
+//             return finalizeObject(
+//                 useProxies ? state.copy : (state.copy = shallowCopy(base)),
+//                 state
+//             )
+//         } else {
+//             return state.base
 //         }
-//         return state.copy
-//     } else {
-//         return state.base
 //     }
+//     finalizeNonProxiedObject(base)
+//     return base
 // }
 
-// function finalizeObject(value){
-//     if (isProxy(value)) {
-//         return finalize(value)
-//     } else {
-//         return value
-//     }
-// }
+function finalizeNonProxiedObject(parent) {
+    if (!isProxyable(parent)) return
+    if (Object.isFrozen(parent)) return
+    // each(parent, (i, child) => {
+    //     parent[i] = finalize(child)
+    // })
+    each(parent, (i, child) => {
+        if (isProxy(child)) {
+            parent[i] = finalize(child)
+        } else finalizeNonProxiedObject(child)
+    })
+    freeze(parent)
+}
+
+function finalizeObject(copy, state) {
+    const base = state.base
+    each(copy, (prop, value) => {
+        if (value !== base[prop]) copy[prop] = finalize(value)
+    })
+    return freeze(copy)
+}
 
 let proxies = null
 const objectTraps = {
@@ -160,9 +201,6 @@ export function produceProxy(baseState, producer) {
         if (rootProxy[PROXY_STATE].modified)
             throw new Error(RETURNED_AND_MODIFIED_ERROR)
 
-        // See #117
-        // Should we just throw when returning a proxy which is not the root, but a subset of the original state?
-        // Looks like a wrongly modeled reducer
         result = finalize(returnValue)
     } else {
         result = finalize(rootProxy)

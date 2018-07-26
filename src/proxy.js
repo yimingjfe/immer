@@ -35,7 +35,6 @@ const objectTraps = {
 const arrayTraps = {}
 each(objectTraps, (key, fn) => {
     arrayTraps[key] = function() {
-        // console.log('key', key, arguments)
         arguments[0] = arguments[0][0]
         return fn.apply(this, arguments) // state push proxy
     }

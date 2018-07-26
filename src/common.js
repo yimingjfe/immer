@@ -39,7 +39,6 @@ export function isProxy(value) {
     return !!value && !!value[PROXY_STATE]
 }
 
-// typeof value != null && typeof value === 'object' && (proto === null || proto ==== Object.proptotype)
 export function isProxyable(value) {
     if (!value) return false // null 不行
     if (typeof value !== "object") return false // 必须是对象
@@ -47,6 +46,12 @@ export function isProxyable(value) {
     const proto = Object.getPrototypeOf(value)
     return proto === null || proto === Object.prototype
 }
+
+// export function isProxyable(value){
+//     if(Array.isArray(value)) return true
+//     if(Object.prototype.toString.call(value) === '[object Object]') return true
+//     return false
+// }
 
 export function freeze(value) {
     if (autoFreeze) {
@@ -83,13 +88,13 @@ export function each(value, cb) {
 export function has(thing, prop) {
     return Object.prototype.hasOwnProperty.call(thing, prop)
 }
-
+// 数组下面是代理，为什么数组不是代理
 // given a base object, returns it if unmodified, or return the changed cloned if modified
 export function finalize(base) {
     if (isProxy(base)) {
         const state = base[PROXY_STATE]
         if (state.modified === true) {
-            if (state.finalized === true) return state.copy
+            if (state.finalized === true) return state.copy // 设置的值是对象的另一个属性，该属性可能已经finalize过
             state.finalized = true
             return finalizeObject(
                 useProxies ? state.copy : (state.copy = shallowCopy(base)),
@@ -99,7 +104,7 @@ export function finalize(base) {
             return state.base // 没做任何变化，会返回原属性状态
         }
     }
-    finalizeNonProxiedObject(base)
+    finalizeNonProxiedObject(base) // base不是代理则说明base下面的属性会有代理
     return base
 }
 
@@ -115,7 +120,7 @@ function finalizeObject(copy, state) {
     })
     return freeze(copy)
 }
-
+// 此时说明是新设置的值
 function finalizeNonProxiedObject(parent) {
     // If finalize is called on an object that was not a proxy, it means that it is an object that was not there in the original
     // tree and it could contain proxies at arbitrarily places. Let's find and finalize them as well
